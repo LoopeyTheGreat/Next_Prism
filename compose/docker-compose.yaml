@@ -1,0 +1,133 @@
+# Next_Prism Docker Compose Configuration
+# Standard Docker deployment (non-Swarm)
+#
+# Usage:
+#   docker-compose up -d
+#   docker-compose logs -f
+#   docker-compose down
+#
+# Make sure to:
+# 1. Copy .env.example to .env and configure
+# 2. Adjust volume paths for your environment
+# 3. Ensure Next_Prism is on same network as Nextcloud/PhotoPrism
+
+version: "3.8"
+
+services:
+  next-prism:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: loopeythegreate/next-prism:latest
+    container_name: next-prism
+    hostname: next-prism
+    restart: unless-stopped
+    
+    # Environment variables (can also use .env file)
+    environment:
+      # Application
+      - APP_PORT=${APP_PORT:-8080}
+      - APP_LOG_LEVEL=${APP_LOG_LEVEL:-INFO}
+      
+      # Nextcloud
+      - NEXTCLOUD_DATA_PATH=${NEXTCLOUD_DATA_PATH:-/var/lib/nextcloud/data}
+      - NEXTCLOUD_CONTAINER_NAME=${NEXTCLOUD_CONTAINER_NAME:-nextcloud}
+      
+      # PhotoPrism
+      - PHOTOPRISM_IMPORT_PATH=${PHOTOPRISM_IMPORT_PATH:-/mnt/photoprism-import}
+      - PHOTOPRISM_ALBUMS_PATH=${PHOTOPRISM_ALBUMS_PATH:-/mnt/photoprism-albums}
+      - PHOTOPRISM_CONTAINER_NAME=${PHOTOPRISM_CONTAINER_NAME:-photoprism}
+      
+      # Additional folders (optional)
+      - ADDITIONAL_FOLDERS=${ADDITIONAL_FOLDERS:-}
+      
+      # Notifications
+      - NTFY_ENABLED=${NTFY_ENABLED:-false}
+      - NTFY_SERVER=${NTFY_SERVER:-https://ntfy.sh}
+      - NTFY_TOPIC=${NTFY_TOPIC:-next-prism-alerts}
+      - NTFY_LEVEL=${NTFY_LEVEL:-error}
+      
+      # Security (optional)
+      - WEB_PASSWORD=${WEB_PASSWORD:-}
+      - IP_WHITELIST=${IP_WHITELIST:-}
+      
+      # Docker mode
+      - SWARM_MODE=false
+    
+    # Volume mounts
+    volumes:
+      # Configuration (persistent)
+      - ./config:/app/config
+      
+      # Logs (persistent)
+      - ./logs:/app/logs
+      
+      # Docker socket (for exec commands)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      
+      # Nextcloud data (read-write access)
+      - ${NEXTCLOUD_DATA_PATH:-/var/lib/nextcloud/data}:/var/lib/nextcloud/data
+      
+      # PhotoPrism import (write access)
+      - ${PHOTOPRISM_IMPORT_PATH:-/mnt/photoprism-import}:/mnt/photoprism-import
+      
+      # PhotoPrism albums (read access for scanning)
+      - ${PHOTOPRISM_ALBUMS_PATH:-/mnt/photoprism-albums}:/mnt/photoprism-albums:ro
+      
+      # Additional monitored folders (adjust as needed)
+      # - /path/to/additional/photos:/mnt/additional-photos
+    
+    # Network - should be on same network as Nextcloud and PhotoPrism
+    networks:
+      - nextcloud-network
+      # Add PhotoPrism network if different
+      # - photoprism-network
+    
+    # Port mapping
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Dependencies (optional - uncomment if Nextcloud/PhotoPrism are in same compose)
+    # depends_on:
+    #   - nextcloud
+    #   - photoprism
+    
+    # Labels for organization
+    labels:
+      - "com.next-prism.description=Photo sync orchestrator"
+      - "com.next-prism.version=0.1.0"
+
+# Networks
+networks:
+  nextcloud-network:
+    external: true
+    name: ${NEXTCLOUD_NETWORK:-nextcloud-network}
+  
+  # If PhotoPrism is on a different network, add it here
+  # photoprism-network:
+  #   external: true
+  #   name: ${PHOTOPRISM_NETWORK:-photoprism-network}
+
+# Note: This compose file assumes Nextcloud and PhotoPrism are already running
+# and have their networks created. Adjust network names to match your setup.
+#
+# To create a network if it doesn't exist:
+#   docker network create nextcloud-network
