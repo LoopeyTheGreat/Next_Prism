@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - Next_Prism{% endblock %}
+
+{% block page_title %}Configuration{% endblock %}
+{% block page_subtitle %}Manage all Next_Prism settings via web interface{% endblock %}
+
+{% block content %}
+<!-- Save Banner (shown when unsaved changes exist) -->
+<div id="unsaved-banner" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle mr-3"></i>
+            <p>You have unsaved changes</p>
+        </div>
+        <div class="space-x-2">
+            <button onclick="saveConfig()" class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition">
+                Save Changes
+            </button>
+            <button onclick="reloadConfig()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition">
+                Discard
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Tabs -->
+<div class="bg-white rounded-lg shadow mb-6">
+    <div class="border-b">
+        <nav class="flex space-x-4 px-6" role="tablist">
+            <button onclick="switchTab('docker')" class="tab-button active px-4 py-4 border-b-2 border-blue-600 text-blue-600 font-semibold">
+                <i class="fab fa-docker mr-2"></i>Docker Services
+            </button>
+            <button onclick="switchTab('nextcloud')" class="tab-button px-4 py-4 border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                <i class="fas fa-cloud mr-2"></i>Nextcloud
+            </button>
+            <button onclick="switchTab('photoprism')" class="tab-button px-4 py-4 border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                <i class="fas fa-camera mr-2"></i>PhotoPrism
+            </button>
+            <button onclick="switchTab('monitoring')" class="tab-button px-4 py-4 border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                <i class="fas fa-folder-open mr-2"></i>Monitoring
+            </button>
+            <button onclick="switchTab('scheduling')" class="tab-button px-4 py-4 border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                <i class="fas fa-clock mr-2"></i>Scheduling
+            </button>
+            <button onclick="switchTab('security')" class="tab-button px-4 py-4 border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                <i class="fas fa-shield-alt mr-2"></i>Security
+            </button>
+            <button onclick="switchTab('notifications')" class="tab-button px-4 py-4 border-b-2 border-transparent text-gray-600 hover:text-gray-800">
+                <i class="fas fa-bell mr-2"></i>Notifications
+            </button>
+        </nav>
+    </div>
+    
+    <div class="p-6">
+        <form id="config-form">
+            <!-- Docker Services Tab -->
+            <div id="tab-docker" class="tab-content">
+                <h3 class="text-lg font-semibold mb-4">Docker Configuration</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Docker Mode
+                        </label>
+                        <select name="docker.swarm_mode" class="config-input w-full px-4 py-2 border rounded-lg">
+                            <option value="false">Standard Docker</option>
+                            <option value="true">Docker Swarm</option>
+                        </select>
+                        <p class="text-sm text-gray-500 mt-1">Enable Swarm mode to use SSH proxies for cross-node communication</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Nextcloud Container Name
+                        </label>
+                        <input type="text" name="docker.nextcloud_container" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="nextcloud">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            PhotoPrism Container Name
+                        </label>
+                        <input type="text" name="docker.photoprism_container" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="photoprism">
+                    </div>
+                    
+                    <div class="border-t pt-4 mt-4">
+                        <h4 class="text-md font-semibold mb-3">Swarm Mode Settings</h4>
+                        <p class="text-sm text-gray-600 mb-4">These settings only apply when Swarm mode is enabled</p>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Nextcloud Proxy Key Path
+                                </label>
+                                <input type="text" name="docker.nextcloud_proxy_key" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="/run/secrets/nextcloud_proxy_privkey">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    PhotoPrism Proxy Key Path
+                                </label>
+                                <input type="text" name="docker.photoprism_proxy_key" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="/run/secrets/photoprism_proxy_privkey">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Nextcloud Tab -->
+            <div id="tab-nextcloud" class="tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">Nextcloud Configuration</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Data Directory Path
+                        </label>
+                        <input type="text" name="nextcloud.data_path" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="/mnt/nextcloud-data">
+                        <p class="text-sm text-gray-500 mt-1">Path to Nextcloud data directory (mounted in Next_Prism container)</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            User Selection Mode
+                        </label>
+                        <select name="nextcloud.user_selection.mode" class="config-input w-full px-4 py-2 border rounded-lg">
+                            <option value="all">Monitor All Users</option>
+                            <option value="include">Include Specific Users</option>
+                            <option value="exclude">Exclude Specific Users</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            User List
+                        </label>
+                        <textarea name="nextcloud.user_selection.users" rows="3" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="user1, user2, user3"></textarea>
+                        <p class="text-sm text-gray-500 mt-1">Comma-separated list of usernames (based on selection mode)</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Photos Subfolder
+                        </label>
+                        <input type="text" name="nextcloud.photos_folder" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="files/Photos">
+                        <p class="text-sm text-gray-500 mt-1">Subfolder within user directory to monitor (e.g., "files/Photos")</p>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" name="nextcloud.scan_after_import" id="scan-after-import" class="config-input w-4 h-4 text-blue-600 border-gray-300 rounded">
+                        <label for="scan-after-import" class="ml-2 text-sm text-gray-700">
+                            Trigger Nextcloud scan after importing to PhotoPrism
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PhotoPrism Tab -->
+            <div id="tab-photoprism" class="tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">PhotoPrism Configuration</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Import Directory Path
+                        </label>
+                        <input type="text" name="photoprism.import_path" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="/mnt/photoprism-import">
+                        <p class="text-sm text-gray-500 mt-1">Path to PhotoPrism import directory (mounted in Next_Prism container)</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Import Mode
+                        </label>
+                        <select name="photoprism.import_mode" class="config-input w-full px-4 py-2 border rounded-lg">
+                            <option value="move">Move (delete from Nextcloud)</option>
+                            <option value="copy">Copy (keep in Nextcloud)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" name="photoprism.auto_index" id="auto-index" class="config-input w-4 h-4 text-blue-600 border-gray-300 rounded">
+                        <label for="auto-index" class="ml-2 text-sm text-gray-700">
+                            Automatically trigger PhotoPrism indexing after import
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Batch Threshold
+                        </label>
+                        <input type="number" name="photoprism.batch_size" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="10">
+                        <p class="text-sm text-gray-500 mt-1">Minimum number of files before triggering batch index</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Monitoring Tab -->
+            <div id="tab-monitoring" class="tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">Folder Monitoring</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            File Stability Delay (seconds)
+                        </label>
+                        <input type="number" name="monitoring.debounce_seconds" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="2">
+                        <p class="text-sm text-gray-500 mt-1">Wait time to ensure files are fully written before processing</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Archive Mode
+                        </label>
+                        <select name="monitoring.archive_mode" class="config-input w-full px-4 py-2 border rounded-lg">
+                            <option value="disabled">Disabled (delete moved files)</option>
+                            <option value="enabled">Enabled (archive moved files)</option>
+                        </select>
+                    </div>
+                    
+                    <div id="archive-path-container" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Archive Directory Path
+                        </label>
+                        <input type="text" name="monitoring.archive_path" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="/mnt/nextcloud-archive">
+                    </div>
+                    
+                    <div class="border-t pt-4 mt-4">
+                        <h4 class="text-md font-semibold mb-3">Additional Monitored Folders</h4>
+                        <p class="text-sm text-gray-600 mb-4">Monitor custom folders beyond Nextcloud user directories</p>
+                        
+                        <div id="custom-folders-list" class="space-y-3 mb-4">
+                            <!-- Dynamically populated -->
+                        </div>
+                        
+                        <button type="button" onclick="addCustomFolder()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            <i class="fas fa-plus mr-2"></i>Add Folder
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Scheduling Tab -->
+            <div id="tab-scheduling" class="tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">Scheduling Configuration</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Default Scan Interval
+                        </label>
+                        <input type="text" name="scheduling.default_interval" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="0 * * * *">
+                        <p class="text-sm text-gray-500 mt-1">Cron expression for default folder scanning (e.g., "0 * * * *" = hourly)</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm font-semibold mb-2">Cron Expression Examples:</p>
+                        <ul class="text-sm text-gray-600 space-y-1">
+                            <li><code class="bg-gray-200 px-2 py-1 rounded">*/5 * * * *</code> - Every 5 minutes</li>
+                            <li><code class="bg-gray-200 px-2 py-1 rounded">0 * * * *</code> - Every hour</li>
+                            <li><code class="bg-gray-200 px-2 py-1 rounded">0 0 * * *</code> - Daily at midnight</li>
+                            <li><code class="bg-gray-200 px-2 py-1 rounded">0 2 * * 0</code> - Weekly on Sunday at 2 AM</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Security Tab -->
+            <div id="tab-security" class="tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">Security Settings</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Web UI Password
+                        </label>
+                        <input type="password" name="security.web_password" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="Leave empty to disable authentication">
+                        <p class="text-sm text-gray-500 mt-1">Set a password to protect web UI access (leave empty to disable)</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            IP Whitelist
+                        </label>
+                        <textarea name="security.ip_whitelist" rows="3" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="192.168.1.100, 10.0.0.0/24"></textarea>
+                        <p class="text-sm text-gray-500 mt-1">Comma-separated list of allowed IPs/CIDRs (leave empty to allow all)</p>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                        <div class="flex">
+                            <i class="fas fa-exclamation-triangle text-yellow-400 mr-3"></i>
+                            <div>
+                                <p class="text-sm text-yellow-700 font-semibold">Security Note</p>
+                                <p class="text-sm text-yellow-700 mt-1">
+                                    Passwords are hashed with bcrypt before storage. JWT secret is auto-generated on first run.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Notifications Tab -->
+            <div id="tab-notifications" class="tab-content hidden">
+                <h3 class="text-lg font-semibold mb-4">ntfy.sh Notifications</h3>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" name="notifications.enabled" id="notifications-enabled" class="config-input w-4 h-4 text-blue-600 border-gray-300 rounded">
+                        <label for="notifications-enabled" class="ml-2 text-sm text-gray-700">
+                            Enable ntfy.sh notifications
+                        </label>
+                    </div>
+                    
+                    <div id="notifications-config" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ntfy.sh Topic
+                            </label>
+                            <input type="text" name="notifications.topic" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="my-nextprism-notifications">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ntfy.sh Server URL
+                            </label>
+                            <input type="text" name="notifications.server" class="config-input w-full px-4 py-2 border rounded-lg" placeholder="https://ntfy.sh">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Notification Level
+                            </label>
+                            <select name="notifications.level" class="config-input w-full px-4 py-2 border rounded-lg">
+                                <option value="error">Errors Only</option>
+                                <option value="warning">Warnings and Errors</option>
+                                <option value="info">All Events</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="flex justify-end space-x-4">
+    <button onclick="reloadConfig()" class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+        <i class="fas fa-undo mr-2"></i>Reset
+    </button>
+    
+    <button onclick="validateConfig()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+        <i class="fas fa-check mr-2"></i>Validate
+    </button>
+    
+    <button onclick="saveConfig()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+        <i class="fas fa-save mr-2"></i>Save Configuration
+    </button>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let currentConfig = {};
+    let originalConfig = {};
+    let hasUnsavedChanges = false;
+    
+    // Load configuration
+    async function loadConfig() {
+        try {
+            const response = await apiRequest('/api/config');
+            if (!response.ok) throw new Error('Failed to load config');
+            
+            currentConfig = await response.json();
+            originalConfig = JSON.parse(JSON.stringify(currentConfig));
+            
+            populateForm(currentConfig);
+            
+        } catch (error) {
+            console.error('Failed to load config:', error);
+            showToast('Failed to load configuration', 'error');
+        }
+    }
+    
+    // Populate form with config data
+    function populateForm(config) {
+        // Docker settings
+        setValue('docker.swarm_mode', config.docker?.swarm_mode);
+        setValue('docker.nextcloud_container', config.docker?.nextcloud_container);
+        setValue('docker.photoprism_container', config.docker?.photoprism_container);
+        setValue('docker.nextcloud_proxy_key', config.docker?.nextcloud_proxy_key);
+        setValue('docker.photoprism_proxy_key', config.docker?.photoprism_proxy_key);
+        
+        // Nextcloud settings
+        setValue('nextcloud.data_path', config.nextcloud?.data_path);
+        setValue('nextcloud.user_selection.mode', config.nextcloud?.user_selection?.mode);
+        setValue('nextcloud.user_selection.users', config.nextcloud?.user_selection?.users?.join(', '));
+        setValue('nextcloud.photos_folder', config.nextcloud?.photos_folder);
+        setCheckbox('nextcloud.scan_after_import', config.nextcloud?.scan_after_import);
+        
+        // PhotoPrism settings
+        setValue('photoprism.import_path', config.photoprism?.import_path);
+        setValue('photoprism.import_mode', config.photoprism?.import_mode);
+        setCheckbox('photoprism.auto_index', config.photoprism?.auto_index);
+        setValue('photoprism.batch_size', config.photoprism?.batch_size);
+        
+        // Monitoring settings
+        setValue('monitoring.debounce_seconds', config.monitoring?.debounce_seconds);
+        setValue('monitoring.archive_mode', config.monitoring?.archive_mode);
+        setValue('monitoring.archive_path', config.monitoring?.archive_path);
+        
+        // Scheduling
+        setValue('scheduling.default_interval', config.scheduling?.default_interval);
+        
+        // Security (don't populate password)
+        if (config.security?.ip_whitelist) {
+            setValue('security.ip_whitelist', config.security.ip_whitelist.join(', '));
+        }
+        
+        // Notifications
+        setCheckbox('notifications.enabled', config.notifications?.enabled);
+        setValue('notifications.topic', config.notifications?.topic);
+        setValue('notifications.server', config.notifications?.server);
+        setValue('notifications.level', config.notifications?.level);
+        
+        // Update visibility based on values
+        toggleArchivePath();
+        toggleNotifications();
+    }
+    
+    function setValue(name, value) {
+        const input = document.querySelector(`[name="${name}"]`);
+        if (input && value !== undefined && value !== null) {
+            input.value = value;
+        }
+    }
+    
+    function setCheckbox(name, value) {
+        const checkbox = document.querySelector(`[name="${name}"]`);
+        if (checkbox) {
+            checkbox.checked = !!value;
+        }
+    }
+    
+    // Save configuration
+    async function saveConfig() {
+        try {
+            const formData = collectFormData();
+            
+            const response = await apiRequest('/api/config', {
+                method: 'POST',
+                body: JSON.stringify({ config: formData })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Failed to save config');
+            }
+            
+            showToast('Configuration saved successfully', 'success');
+            originalConfig = JSON.parse(JSON.stringify(formData));
+            hasUnsavedChanges = false;
+            updateUnsavedBanner();
+            
+        } catch (error) {
+            showToast(error.message, 'error');
+        }
+    }
+    
+    // Validate configuration
+    async function validateConfig() {
+        try {
+            const formData = collectFormData();
+            
+            const response = await apiRequest('/api/config/validate', {
+                method: 'POST',
+                body: JSON.stringify({ config: formData })
+            });
+            
+            const result = await response.json();
+            
+            if (result.valid) {
+                showToast('Configuration is valid', 'success');
+            } else {
+                showToast('Validation failed: ' + result.message, 'error');
+            }
+            
+        } catch (error) {
+            showToast('Validation error', 'error');
+        }
+    }
+    
+    // Collect form data
+    function collectFormData() {
+        const data = {};
+        const inputs = document.querySelectorAll('.config-input');
+        
+        inputs.forEach(input => {
+            const name = input.name;
+            if (!name) return;
+            
+            let value;
+            if (input.type === 'checkbox') {
+                value = input.checked;
+            } else if (input.type === 'number') {
+                value = input.value ? parseInt(input.value) : null;
+            } else {
+                value = input.value;
+            }
+            
+            // Handle comma-separated lists
+            if (name.includes('users') || name.includes('whitelist')) {
+                value = value ? value.split(',').map(v => v.trim()).filter(v => v) : [];
+            }
+            
+            // Set nested property
+            setNestedProperty(data, name, value);
+        });
+        
+        return data;
+    }
+    
+    function setNestedProperty(obj, path, value) {
+        const parts = path.split('.');
+        let current = obj;
+        
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!current[parts[i]]) {
+                current[parts[i]] = {};
+            }
+            current = current[parts[i]];
+        }
+        
+        current[parts[parts.length - 1]] = value;
+    }
+    
+    // Reload configuration
+    async function reloadConfig() {
+        if (hasUnsavedChanges) {
+            if (!confirm('Discard unsaved changes?')) return;
+        }
+        await loadConfig();
+        hasUnsavedChanges = false;
+        updateUnsavedBanner();
+    }
+    
+    // Tab switching
+    function switchTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.add('hidden');
+        });
+        
+        // Show selected tab
+        document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+        
+        // Update button styles
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active', 'border-blue-600', 'text-blue-600');
+            btn.classList.add('border-transparent', 'text-gray-600');
+        });
+        
+        event.target.classList.add('active', 'border-blue-600', 'text-blue-600');
+        event.target.classList.remove('border-transparent', 'text-gray-600');
+    }
+    
+    // Toggle archive path visibility
+    function toggleArchivePath() {
+        const archiveMode = document.querySelector('[name="monitoring.archive_mode"]')?.value;
+        const container = document.getElementById('archive-path-container');
+        if (container) {
+            container.classList.toggle('hidden', archiveMode !== 'enabled');
+        }
+    }
+    
+    // Toggle notifications config
+    function toggleNotifications() {
+        const enabled = document.getElementById('notifications-enabled')?.checked;
+        const container = document.getElementById('notifications-config');
+        if (container) {
+            container.classList.toggle('hidden', !enabled);
+        }
+    }
+    
+    // Track changes
+    function markChanged() {
+        hasUnsavedChanges = true;
+        updateUnsavedBanner();
+    }
+    
+    function updateUnsavedBanner() {
+        const banner = document.getElementById('unsaved-banner');
+        if (hasUnsavedChanges) {
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
+    }
+    
+    // Custom folder management
+    function addCustomFolder() {
+        // TODO: Implement custom folder addition UI
+        showToast('Custom folder management coming soon', 'info');
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        loadConfig();
+        
+        // Track changes
+        document.querySelectorAll('.config-input').forEach(input => {
+            input.addEventListener('change', markChanged);
+        });
+        
+        // Archive mode change handler
+        document.querySelector('[name="monitoring.archive_mode"]')?.addEventListener('change', toggleArchivePath);
+        
+        // Notifications toggle handler
+        document.getElementById('notifications-enabled')?.addEventListener('change', toggleNotifications);
+    });
+</script>
+{% endblock %}

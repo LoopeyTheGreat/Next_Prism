@@ -1,0 +1,101 @@
+# Next_Prism Nextcloud Proxy - Docker Swarm Stack
+#
+# This stack deploys the SSH proxy service for Nextcloud commands.
+# The proxy must run on the same node as the Nextcloud container to enable
+# docker exec communication.
+#
+# Prerequisites:
+# - Docker secrets created: nextcloud_proxy_pubkey, nextcloud_proxy_privkey
+# - Nextcloud service running in Swarm
+# - Overlay network 'nextprism_network' created
+#
+# Deploy:
+#   docker stack deploy -c nextcloud-proxy.yaml nextprism-nc-proxy
+#
+# Author: Next_Prism Project
+# License: MIT
+
+version: '3.8'
+
+services:
+  nextcloud-proxy:
+    image: ${NEXTPRISM_REGISTRY:-localhost}/nextprism-nextcloud-proxy:${NEXTPRISM_VERSION:-latest}
+    
+    # Build configuration (for local builds)
+    build:
+      context: ..
+      dockerfile: docker/proxy-nextcloud.Dockerfile
+    
+    # Service placement: must run on same node as Nextcloud
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          # Run on same node as Nextcloud service
+          - node.labels.nextcloud == true
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      labels:
+        - "service=nextcloud-proxy"
+        - "nextprism.component=proxy"
+        - "nextprism.target=nextcloud"
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    # Environment configuration
+    environment:
+      # Target container name (adjust if Nextcloud service has different name)
+      NEXTCLOUD_CONTAINER: "${NEXTCLOUD_CONTAINER:-nextcloud}"
+      
+      # Optional: custom SSH port (default: 2222)
+      # SSH_PORT: 2222
+    
+    # Docker secrets for SSH keys
+    secrets:
+      - nextcloud_proxy_pubkey
+    
+    # Mount Docker socket for docker exec
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+    # Network configuration
+    networks:
+      - nextprism_network
+    
+    # Port exposure (only accessible within overlay network)
+    ports:
+      - target: 2222
+        published: 2222
+        protocol: tcp
+        mode: host  # Host mode for predictable port binding
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2222"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Docker secrets
+secrets:
+  nextcloud_proxy_pubkey:
+    external: true
+
+# Networks
+networks:
+  nextprism_network:
+    external: true
+    driver: overlay

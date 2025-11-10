@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Next_Prism{% endblock %}
+
+{% block content %}
+<!-- Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <!-- Total Synced -->
+    <div class="card bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">Total Synced</p>
+                <p id="stat-synced" class="text-3xl font-bold text-blue-600 mt-2">-</p>
+            </div>
+            <div class="bg-blue-100 rounded-full p-4">
+                <i class="fas fa-check-circle text-blue-600 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Duplicates Found -->
+    <div class="card bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">Duplicates Found</p>
+                <p id="stat-duplicates" class="text-3xl font-bold text-yellow-600 mt-2">-</p>
+            </div>
+            <div class="bg-yellow-100 rounded-full p-4">
+                <i class="fas fa-copy text-yellow-600 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Queue Size -->
+    <div class="card bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">Queue Size</p>
+                <p id="stat-queue" class="text-3xl font-bold text-purple-600 mt-2">-</p>
+            </div>
+            <div class="bg-purple-100 rounded-full p-4">
+                <i class="fas fa-list text-purple-600 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Errors -->
+    <div class="card bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-500 text-sm">Errors</p>
+                <p id="stat-errors" class="text-3xl font-bold text-red-600 mt-2">-</p>
+            </div>
+            <div class="bg-red-100 rounded-full p-4">
+                <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Panel -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4 flex items-center">
+        <i class="fas fa-sliders-h mr-2 text-blue-600"></i>
+        Control Panel
+    </h3>
+    
+    <div class="flex flex-wrap gap-4">
+        <button onclick="triggerSync()" class="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+            <i class="fas fa-play mr-2"></i>
+            Trigger Sync
+        </button>
+        
+        <button onclick="pauseSync()" class="flex items-center px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
+            <i class="fas fa-pause mr-2"></i>
+            Pause
+        </button>
+        
+        <button onclick="resumeSync()" class="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+            <i class="fas fa-play-circle mr-2"></i>
+            Resume
+        </button>
+        
+        <button onclick="clearQueue()" class="flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+            <i class="fas fa-trash mr-2"></i>
+            Clear Queue
+        </button>
+        
+        <button onclick="testConnections()" class="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+            <i class="fas fa-plug mr-2"></i>
+            Test Connections
+        </button>
+    </div>
+</div>
+
+<!-- System Status -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Monitored Folders -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fas fa-folder-open mr-2 text-blue-600"></i>
+            Monitored Folders
+        </h3>
+        
+        <div id="monitored-folders" class="space-y-3">
+            <div class="flex items-center justify-center py-8 text-gray-400">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4 flex items-center">
+            <i class="fas fa-history mr-2 text-blue-600"></i>
+            Recent Activity
+        </h3>
+        
+        <div id="recent-activity" class="space-y-3">
+            <div class="flex items-center justify-center py-8 text-gray-400">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Docker Services Status -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4 flex items-center">
+        <i class="fab fa-docker mr-2 text-blue-600"></i>
+        Docker Services
+    </h3>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Nextcloud Status -->
+        <div id="nextcloud-status" class="border rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold">Nextcloud</span>
+                <span class="status-dot status-running"></span>
+            </div>
+            <p class="text-sm text-gray-600">Container: <code class="bg-gray-100 px-2 py-1 rounded">nextcloud</code></p>
+            <p class="text-sm text-gray-600 mt-1">Status: <span class="text-green-600">Connected</span></p>
+        </div>
+        
+        <!-- PhotoPrism Status -->
+        <div id="photoprism-status" class="border rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold">PhotoPrism</span>
+                <span class="status-dot status-running"></span>
+            </div>
+            <p class="text-sm text-gray-600">Container: <code class="bg-gray-100 px-2 py-1 rounded">photoprism</code></p>
+            <p class="text-sm text-gray-600 mt-1">Status: <span class="text-green-600">Connected</span></p>
+        </div>
+    </div>
+</div>
+
+<!-- Swarm Proxy Status (shown if Swarm mode enabled) -->
+<div id="proxy-status-card" class="bg-white rounded-lg shadow p-6 hidden">
+    <h3 class="text-lg font-semibold mb-4 flex items-center">
+        <i class="fas fa-network-wired mr-2 text-blue-600"></i>
+        Swarm Proxy Services
+    </h3>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div id="nextcloud-proxy-status" class="border rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold">Nextcloud Proxy</span>
+                <span class="status-dot status-error"></span>
+            </div>
+            <p class="text-sm text-gray-600">Status: <span class="text-gray-400">Unknown</span></p>
+        </div>
+        
+        <div id="photoprism-proxy-status" class="border rounded-lg p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold">PhotoPrism Proxy</span>
+                <span class="status-dot status-error"></span>
+            </div>
+            <p class="text-sm text-gray-600">Status: <span class="text-gray-400">Unknown</span></p>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <button onclick="discoverProxies()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+            <i class="fas fa-search mr-2"></i>
+            Discover Proxies
+        </button>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Refresh interval (in milliseconds)
+    const REFRESH_INTERVAL = 5000;
+    let refreshTimer;
+    
+    // Load dashboard data
+    async function loadDashboard() {
+        try {
+            // Get status
+            const response = await apiRequest('/api/status');
+            if (!response.ok) throw new Error('Failed to fetch status');
+            
+            const data = await response.json();
+            
+            // Update statistics
+            document.getElementById('stat-synced').textContent = 
+                data.sync_stats?.total_synced || 0;
+            document.getElementById('stat-duplicates').textContent = 
+                data.sync_stats?.total_duplicates || 0;
+            document.getElementById('stat-queue').textContent = 
+                data.queue_size || 0;
+            document.getElementById('stat-errors').textContent = 
+                data.sync_stats?.total_errors || 0;
+            
+            // Show proxy status if Swarm mode
+            if (data.swarm_mode) {
+                document.getElementById('proxy-status-card').classList.remove('hidden');
+                loadProxyStatus();
+            }
+            
+        } catch (error) {
+            console.error('Failed to load dashboard:', error);
+        }
+    }
+    
+    // Load proxy status
+    async function loadProxyStatus() {
+        try {
+            const response = await apiRequest('/api/proxy/status');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            
+            // Update Nextcloud proxy
+            updateProxyCard('nextcloud-proxy-status', data.nextcloud_proxy);
+            
+            // Update PhotoPrism proxy
+            updateProxyCard('photoprism-proxy-status', data.photoprism_proxy);
+            
+        } catch (error) {
+            console.error('Failed to load proxy status:', error);
+        }
+    }
+    
+    function updateProxyCard(elementId, proxyData) {
+        const card = document.getElementById(elementId);
+        const dot = card.querySelector('.status-dot');
+        const statusText = card.querySelector('p:last-child span');
+        
+        if (proxyData.healthy) {
+            dot.className = 'status-dot status-running';
+            statusText.textContent = 'Healthy';
+            statusText.className = 'text-green-600';
+        } else if (proxyData.available) {
+            dot.className = 'status-dot status-warning';
+            statusText.textContent = 'Unavailable';
+            statusText.className = 'text-yellow-600';
+        } else {
+            dot.className = 'status-dot status-error';
+            statusText.textContent = 'Not Found';
+            statusText.className = 'text-red-600';
+        }
+    }
+    
+    // Control functions
+    async function triggerSync() {
+        try {
+            const response = await apiRequest('/api/sync/trigger', {
+                method: 'POST',
+                body: JSON.stringify({ force: false })
+            });
+            
+            if (response.ok) {
+                showToast('Sync triggered successfully', 'success');
+                loadDashboard();
+            } else {
+                throw new Error('Failed to trigger sync');
+            }
+        } catch (error) {
+            showToast('Failed to trigger sync', 'error');
+        }
+    }
+    
+    async function pauseSync() {
+        try {
+            const response = await apiRequest('/api/sync/pause', { method: 'POST' });
+            if (response.ok) {
+                showToast('Sync paused', 'success');
+            }
+        } catch (error) {
+            showToast('Failed to pause sync', 'error');
+        }
+    }
+    
+    async function resumeSync() {
+        try {
+            const response = await apiRequest('/api/sync/resume', { method: 'POST' });
+            if (response.ok) {
+                showToast('Sync resumed', 'success');
+            }
+        } catch (error) {
+            showToast('Failed to resume sync', 'error');
+        }
+    }
+    
+    async function clearQueue() {
+        if (!confirm('Are you sure you want to clear the sync queue?')) return;
+        
+        try {
+            const response = await apiRequest('/api/queue', { method: 'DELETE' });
+            if (response.ok) {
+                showToast('Queue cleared', 'success');
+                loadDashboard();
+            }
+        } catch (error) {
+            showToast('Failed to clear queue', 'error');
+        }
+    }
+    
+    async function testConnections() {
+        showToast('Testing connections...', 'info');
+        
+        try {
+            // Test Nextcloud
+            const ncResponse = await apiRequest('/api/test/nextcloud', { method: 'POST' });
+            const ncData = await ncResponse.json();
+            
+            if (ncData.success) {
+                showToast('Nextcloud: Connected', 'success');
+            } else {
+                showToast('Nextcloud: ' + ncData.message, 'error');
+            }
+            
+            // Test PhotoPrism
+            const ppResponse = await apiRequest('/api/test/photoprism', { method: 'POST' });
+            const ppData = await ppResponse.json();
+            
+            if (ppData.success) {
+                showToast('PhotoPrism: Connected', 'success');
+            } else {
+                showToast('PhotoPrism: ' + ppData.message, 'error');
+            }
+            
+        } catch (error) {
+            showToast('Connection test failed', 'error');
+        }
+    }
+    
+    async function discoverProxies() {
+        showToast('Discovering proxy services...', 'info');
+        
+        try {
+            const response = await apiRequest('/api/proxy/discover', { method: 'POST' });
+            if (response.ok) {
+                showToast('Proxy discovery completed', 'success');
+                loadProxyStatus();
+            }
+        } catch (error) {
+            showToast('Proxy discovery failed', 'error');
+        }
+    }
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboard();
+        
+        // Auto-refresh every 5 seconds
+        refreshTimer = setInterval(loadDashboard, REFRESH_INTERVAL);
+    });
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (refreshTimer) clearInterval(refreshTimer);
+    });
+</script>
+{% endblock %}

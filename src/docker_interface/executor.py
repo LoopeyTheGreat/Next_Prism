@@ -12,8 +12,17 @@ import docker
 import subprocess
 from typing import Optional, Tuple, List
 from enum import Enum
+from pathlib import Path
 
 from ..utils.logger import get_logger
+
+# Import SSH proxy components (conditional for environments without Paramiko)
+try:
+    from .ssh_proxy import SSHProxyClient
+    from .proxy_discovery import ProxyDiscovery
+    SSH_PROXY_AVAILABLE = True
+except ImportError:
+    SSH_PROXY_AVAILABLE = False
 
 logger = get_logger(__name__)
 
@@ -66,7 +75,9 @@ class DockerExecutor:
     def __init__(
         self,
         docker_socket: str = "/var/run/docker.sock",
-        swarm_mode: Optional[bool] = None
+        swarm_mode: Optional[bool] = None,
+        nextcloud_proxy_key: Optional[str] = None,
+        photoprism_proxy_key: Optional[str] = None
     ):
         """
         Initialize Docker executor.
@@ -74,10 +85,17 @@ class DockerExecutor:
         Args:
             docker_socket: Path to Docker socket
             swarm_mode: Force Swarm mode (None = auto-detect)
+            nextcloud_proxy_key: Path to Nextcloud proxy private key (for Swarm)
+            photoprism_proxy_key: Path to PhotoPrism proxy private key (for Swarm)
         """
         self.docker_socket = docker_socket
         self._swarm_mode = swarm_mode
         self._docker_client: Optional[docker.DockerClient] = None
+        
+        # SSH proxy components
+        self._ssh_nextcloud: Optional[SSHProxyClient] = None
+        self._ssh_photoprism: Optional[SSHProxyClient] = None
+        self._proxy_discovery: Optional[ProxyDiscovery] = None
         
         # Initialize Docker client
         try:
@@ -90,7 +108,72 @@ class DockerExecutor:
         if self._swarm_mode is None:
             self._swarm_mode = self._detect_swarm_mode()
         
+        # Initialize SSH proxies if in Swarm mode
+        if self._swarm_mode:
+            if not SSH_PROXY_AVAILABLE:
+                logger.error(
+                    "Swarm mode enabled but SSH proxy modules not available. "
+                    "Install paramiko: pip install paramiko"
+                )
+            else:
+                self._init_ssh_proxies(nextcloud_proxy_key, photoprism_proxy_key)
+        
         logger.info(f"Docker executor initialized (Swarm mode: {self._swarm_mode})")
+    
+    def _init_ssh_proxies(
+        self,
+        nextcloud_key: Optional[str],
+        photoprism_key: Optional[str]
+    ):
+        """
+        Initialize SSH proxy clients for Swarm communication.
+        
+        Args:
+            nextcloud_key: Path to Nextcloud proxy private key
+            photoprism_key: Path to PhotoPrism proxy private key
+        """
+        # Default key paths (Docker secrets or local)
+        nextcloud_key = nextcloud_key or "/run/secrets/nextcloud_proxy_privkey"
+        photoprism_key = photoprism_key or "/run/secrets/photoprism_proxy_privkey"
+        
+        # Initialize proxy discovery
+        if self._docker_client:
+            self._proxy_discovery = ProxyDiscovery(
+                docker_client=self._docker_client,
+                cache_ttl=60,
+                health_check_timeout=5
+            )
+            logger.info("Proxy discovery initialized")
+        
+        # Initialize Nextcloud SSH proxy
+        if Path(nextcloud_key).exists():
+            try:
+                self._ssh_nextcloud = SSHProxyClient(
+                    private_key_path=nextcloud_key,
+                    connection_timeout=10,
+                    command_timeout=300,
+                    max_connections=3
+                )
+                logger.info("Nextcloud SSH proxy client initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize Nextcloud SSH proxy: {e}")
+        else:
+            logger.warning(f"Nextcloud proxy key not found: {nextcloud_key}")
+        
+        # Initialize PhotoPrism SSH proxy
+        if Path(photoprism_key).exists():
+            try:
+                self._ssh_photoprism = SSHProxyClient(
+                    private_key_path=photoprism_key,
+                    connection_timeout=10,
+                    command_timeout=300,
+                    max_connections=3
+                )
+                logger.info("PhotoPrism SSH proxy client initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize PhotoPrism SSH proxy: {e}")
+        else:
+            logger.warning(f"PhotoPrism proxy key not found: {photoprism_key}")
     
     def _detect_swarm_mode(self) -> bool:
         """
@@ -227,6 +310,9 @@ class DockerExecutor:
         """
         Execute command via SSH proxy (Swarm mode).
         
+        Determines service type from container name, discovers proxy service,
+        and executes command via SSH.
+        
         Args:
             container_name: Container or service name
             command: Command as list of strings
@@ -235,10 +321,90 @@ class DockerExecutor:
         Returns:
             CommandResult
         """
-        # TODO: Implement SSH proxy execution in Phase 3
-        # For now, fall back to direct execution
-        logger.warning("SSH proxy not yet implemented, falling back to direct exec")
-        return self._exec_direct(container_name, command, timeout)
+        if not SSH_PROXY_AVAILABLE:
+            logger.error("SSH proxy modules not available, falling back to direct exec")
+            return self._exec_direct(container_name, command, timeout)
+        
+        # Determine service type from container/service name
+        service_type = None
+        ssh_client = None
+        
+        if "nextcloud" in container_name.lower():
+            service_type = "nextcloud"
+            ssh_client = self._ssh_nextcloud
+        elif "photoprism" in container_name.lower():
+            service_type = "photoprism"
+            ssh_client = self._ssh_photoprism
+        else:
+            logger.error(f"Cannot determine service type from name: {container_name}")
+            return CommandResult(
+                success=False,
+                error_message=f"Unknown service type for: {container_name}"
+            )
+        
+        if not ssh_client:
+            logger.error(f"SSH client not initialized for {service_type}")
+            return CommandResult(
+                success=False,
+                error_message=f"SSH proxy not configured for {service_type}"
+            )
+        
+        # Discover proxy service
+        if not self._proxy_discovery:
+            logger.error("Proxy discovery not initialized")
+            return CommandResult(
+                success=False,
+                error_message="Proxy discovery not available"
+            )
+        
+        proxy = self._proxy_discovery.get_cached_proxy(service_type)
+        if not proxy:
+            logger.info(f"Discovering {service_type} proxy...")
+            proxy = self._proxy_discovery.discover_proxy(service_type)
+        
+        if not proxy or not proxy.is_healthy:
+            logger.error(f"No healthy {service_type} proxy found")
+            return CommandResult(
+                success=False,
+                error_message=f"No healthy {service_type} proxy available"
+            )
+        
+        # Execute command via SSH
+        command_str = " ".join(command)
+        logger.info(
+            f"Executing via {service_type} proxy "
+            f"({proxy.hostname}:{proxy.port}): {command_str}"
+        )
+        
+        try:
+            success, stdout, stderr = ssh_client.execute_command(
+                host=proxy.hostname,
+                port=proxy.port,
+                command=command_str,
+                timeout=timeout
+            )
+            
+            if success:
+                logger.info(f"Command succeeded via {service_type} proxy")
+                self._proxy_discovery.mark_proxy_success(service_type)
+            else:
+                logger.warning(f"Command failed via {service_type} proxy")
+                self._proxy_discovery.mark_proxy_error(service_type)
+            
+            return CommandResult(
+                success=success,
+                stdout=stdout,
+                stderr=stderr,
+                exit_code=0 if success else 1
+            )
+            
+        except Exception as e:
+            logger.error(f"SSH proxy communication error: {e}")
+            self._proxy_discovery.mark_proxy_error(service_type)
+            return CommandResult(
+                success=False,
+                error_message=f"SSH proxy error: {e}"
+            )
     
     def is_swarm_mode(self) -> bool:
         """Check if running in Swarm mode."""

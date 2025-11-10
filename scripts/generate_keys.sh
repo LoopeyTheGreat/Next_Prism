@@ -51,12 +51,74 @@ echo "  Nextcloud: $KEY_DIR/nextcloud_proxy_ed25519"
 echo "  PhotoPrism: $KEY_DIR/photoprism_proxy_ed25519"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Create Docker secrets from these keys:"
-echo "     docker secret create nextcloud_proxy_key $KEY_DIR/nextcloud_proxy_ed25519"
-echo "     docker secret create nextcloud_proxy_pubkey $KEY_DIR/nextcloud_proxy_ed25519.pub"
-echo "     docker secret create photoprism_proxy_key $KEY_DIR/photoprism_proxy_ed25519"
-echo "     docker secret create photoprism_proxy_pubkey $KEY_DIR/photoprism_proxy_ed25519.pub"
 echo ""
-echo "  2. Deploy the proxy services using the Swarm stack files"
+echo "1. Create Docker Swarm secrets from these keys:"
 echo ""
-echo -e "${RED}IMPORTANT: Keep these private keys secure and never commit them to git!${NC}"
+echo "   For Nextcloud proxy:"
+echo "   $ docker secret create nextcloud_proxy_privkey $KEY_DIR/nextcloud_proxy_ed25519"
+echo "   $ docker secret create nextcloud_proxy_pubkey $KEY_DIR/nextcloud_proxy_ed25519.pub"
+echo ""
+echo "   For PhotoPrism proxy:"
+echo "   $ docker secret create photoprism_proxy_privkey $KEY_DIR/photoprism_proxy_ed25519"
+echo "   $ docker secret create photoprism_proxy_pubkey $KEY_DIR/photoprism_proxy_ed25519.pub"
+echo ""
+echo "2. Copy private keys to Next_Prism container secrets:"
+echo "   $ cp $KEY_DIR/nextcloud_proxy_ed25519 /path/to/nextprism/secrets/"
+echo "   $ cp $KEY_DIR/photoprism_proxy_ed25519 /path/to/nextprism/secrets/"
+echo ""
+echo "3. Deploy proxy services to Swarm:"
+echo "   $ docker stack deploy -c compose/nextcloud-proxy.yaml nextprism-nc-proxy"
+echo "   $ docker stack deploy -c compose/photoprism-proxy.yaml nextprism-pp-proxy"
+echo ""
+echo "4. Update config.yaml with Swarm mode enabled:"
+echo "   docker:"
+echo "     swarm_mode: true"
+echo ""
+echo -e "${RED}IMPORTANT: Keep private keys secure and never commit to git!${NC}"
+echo -e "${RED}           Add secrets/ directory to .gitignore${NC}"
+
+# Optionally create secrets automatically if in Swarm mode
+if docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null | grep -q 'active'; then
+    echo ""
+    echo -e "${YELLOW}Detected active Swarm node. Create secrets now? (y/N)${NC}"
+    read -r response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        echo ""
+        echo "Creating Docker secrets..."
+        
+        # Check if secrets already exist
+        if docker secret ls --format '{{.Name}}' | grep -q 'nextcloud_proxy_privkey'; then
+            echo -e "${YELLOW}Warning: nextcloud_proxy_privkey already exists, skipping...${NC}"
+        else
+            docker secret create nextcloud_proxy_privkey "$KEY_DIR/nextcloud_proxy_ed25519"
+            echo -e "${GREEN}✓ Created nextcloud_proxy_privkey${NC}"
+        fi
+        
+        if docker secret ls --format '{{.Name}}' | grep -q 'nextcloud_proxy_pubkey'; then
+            echo -e "${YELLOW}Warning: nextcloud_proxy_pubkey already exists, skipping...${NC}"
+        else
+            docker secret create nextcloud_proxy_pubkey "$KEY_DIR/nextcloud_proxy_ed25519.pub"
+            echo -e "${GREEN}✓ Created nextcloud_proxy_pubkey${NC}"
+        fi
+        
+        if docker secret ls --format '{{.Name}}' | grep -q 'photoprism_proxy_privkey'; then
+            echo -e "${YELLOW}Warning: photoprism_proxy_privkey already exists, skipping...${NC}"
+        else
+            docker secret create photoprism_proxy_privkey "$KEY_DIR/photoprism_proxy_ed25519"
+            echo -e "${GREEN}✓ Created photoprism_proxy_privkey${NC}"
+        fi
+        
+        if docker secret ls --format '{{.Name}}' | grep -q 'photoprism_proxy_pubkey'; then
+            echo -e "${YELLOW}Warning: photoprism_proxy_pubkey already exists, skipping...${NC}"
+        else
+            docker secret create photoprism_proxy_pubkey "$KEY_DIR/photoprism_proxy_ed25519.pub"
+            echo -e "${GREEN}✓ Created photoprism_proxy_pubkey${NC}"
+        fi
+        
+        echo ""
+        echo -e "${GREEN}Docker secrets created successfully!${NC}"
+        echo ""
+        echo "Verify secrets:"
+        echo "  $ docker secret ls"
+    fi
+fi

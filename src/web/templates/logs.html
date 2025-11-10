@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Next_Prism{% endblock %}
+
+{% block page_title %}System Logs{% endblock %}
+{% block page_subtitle %}Real-time log streaming and filtering{% endblock %}
+
+{% block content %}
+<!-- Log Controls -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <!-- Filters -->
+        <div class="flex flex-wrap items-center gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                <select id="log-level-filter" class="px-4 py-2 border rounded-lg">
+                    <option value="">All Levels</option>
+                    <option value="DEBUG">Debug</option>
+                    <option value="INFO">Info</option>
+                    <option value="WARNING">Warning</option>
+                    <option value="ERROR">Error</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Component</label>
+                <select id="component-filter" class="px-4 py-2 border rounded-lg">
+                    <option value="">All Components</option>
+                    <option value="orchestrator">Orchestrator</option>
+                    <option value="sync_engine">Sync Engine</option>
+                    <option value="monitoring">Monitoring</option>
+                    <option value="docker">Docker</option>
+                    <option value="web">Web</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" id="log-search" placeholder="Search logs..." class="px-4 py-2 border rounded-lg">
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex items-center gap-2">
+            <button onclick="toggleAutoScroll()" id="autoscroll-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                <i class="fas fa-arrow-down mr-2"></i>Auto-scroll
+            </button>
+            
+            <button onclick="clearLogs()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                <i class="fas fa-eraser mr-2"></i>Clear
+            </button>
+            
+            <button onclick="exportLogs()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                <i class="fas fa-download mr-2"></i>Export
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Log Viewer -->
+<div class="bg-gray-900 rounded-lg shadow p-4" style="min-height: 600px; max-height: 600px; overflow-y: auto;" id="log-container">
+    <div class="space-y-1 font-mono text-sm" id="log-entries">
+        <div class="text-gray-400 text-center py-8">
+            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+            <p>Connecting to log stream...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Log Statistics -->
+<div class="bg-white rounded-lg shadow p-6 mt-6">
+    <h3 class="text-lg font-semibold mb-4">Statistics</h3>
+    
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="text-center">
+            <p class="text-2xl font-bold text-gray-600" id="stat-debug">0</p>
+            <p class="text-sm text-gray-500">Debug</p>
+        </div>
+        
+        <div class="text-center">
+            <p class="text-2xl font-bold text-blue-600" id="stat-info">0</p>
+            <p class="text-sm text-gray-500">Info</p>
+        </div>
+        
+        <div class="text-center">
+            <p class="text-2xl font-bold text-yellow-600" id="stat-warning">0</p>
+            <p class="text-sm text-gray-500">Warning</p>
+        </div>
+        
+        <div class="text-center">
+            <p class="text-2xl font-bold text-red-600" id="stat-error">0</p>
+            <p class="text-sm text-gray-500">Error</p>
+        </div>
+        
+        <div class="text-center">
+            <p class="text-2xl font-bold text-gray-800" id="stat-total">0</p>
+            <p class="text-sm text-gray-500">Total</p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let eventSource = null;
+    let autoScroll = true;
+    let logEntries = [];
+    let stats = { DEBUG: 0, INFO: 0, WARNING: 0, ERROR: 0 };
+    
+    // Level colors
+    const levelColors = {
+        DEBUG: 'text-gray-400',
+        INFO: 'text-blue-400',
+        WARNING: 'text-yellow-400',
+        ERROR: 'text-red-400'
+    };
+    
+    // Start log streaming
+    function startLogStream() {
+        if (eventSource) {
+            eventSource.close();
+        }
+        
+        eventSource = new EventSource('/api/logs/stream');
+        
+        eventSource.onmessage = function(event) {
+            try {
+                const logEntry = JSON.parse(event.data);
+                addLogEntry(logEntry);
+            } catch (error) {
+                console.error('Failed to parse log entry:', error);
+            }
+        };
+        
+        eventSource.onerror = function(error) {
+            console.error('EventSource failed:', error);
+            // Try to reconnect after 5 seconds
+            setTimeout(startLogStream, 5000);
+        };
+    }
+    
+    // Add log entry to display
+    function addLogEntry(entry) {
+        logEntries.push(entry);
+        
+        // Update statistics
+        if (entry.level in stats) {
+            stats[entry.level]++;
+            updateStatistics();
+        }
+        
+        // Apply filters
+        if (!passesFilters(entry)) {
+            return;
+        }
+        
+        // Create log line
+        const logLine = createLogLine(entry);
+        const container = document.getElementById('log-entries');
+        
+        // Remove loading message if present
+        if (container.querySelector('.text-center')) {
+            container.innerHTML = '';
+        }
+        
+        container.appendChild(logLine);
+        
+        // Limit log entries in DOM
+        const maxEntries = 1000;
+        while (container.children.length > maxEntries) {
+            container.removeChild(container.firstChild);
+        }
+        
+        // Auto-scroll to bottom
+        if (autoScroll) {
+            const logContainer = document.getElementById('log-container');
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+    }
+    
+    // Create log line element
+    function createLogLine(entry) {
+        const div = document.createElement('div');
+        div.className = 'log-entry py-1 hover:bg-gray-800 px-2 rounded';
+        
+        const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+        const levelColor = levelColors[entry.level] || 'text-gray-400';
+        
+        div.innerHTML = `
+            <span class="text-gray-500">[${timestamp}]</span>
+            <span class="${levelColor} font-semibold">[${entry.level}]</span>
+            <span class="text-purple-400">[${entry.component}]</span>
+            <span class="text-gray-300">${escapeHtml(entry.message)}</span>
+        `;
+        
+        return div;
+    }
+    
+    // Check if entry passes current filters
+    function passesFilters(entry) {
+        const levelFilter = document.getElementById('log-level-filter').value;
+        const componentFilter = document.getElementById('component-filter').value;
+        const searchFilter = document.getElementById('log-search').value.toLowerCase();
+        
+        if (levelFilter && entry.level !== levelFilter) {
+            return false;
+        }
+        
+        if (componentFilter && entry.component !== componentFilter) {
+            return false;
+        }
+        
+        if (searchFilter && !entry.message.toLowerCase().includes(searchFilter)) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // Re-render logs with current filters
+    function applyFilters() {
+        const container = document.getElementById('log-entries');
+        container.innerHTML = '';
+        
+        logEntries.forEach(entry => {
+            if (passesFilters(entry)) {
+                container.appendChild(createLogLine(entry));
+            }
+        });
+        
+        if (container.children.length === 0) {
+            container.innerHTML = '<div class="text-gray-400 text-center py-8">No logs match the current filters</div>';
+        }
+    }
+    
+    // Update statistics display
+    function updateStatistics() {
+        document.getElementById('stat-debug').textContent = stats.DEBUG || 0;
+        document.getElementById('stat-info').textContent = stats.INFO || 0;
+        document.getElementById('stat-warning').textContent = stats.WARNING || 0;
+        document.getElementById('stat-error').textContent = stats.ERROR || 0;
+        
+        const total = Object.values(stats).reduce((a, b) => a + b, 0);
+        document.getElementById('stat-total').textContent = total;
+    }
+    
+    // Toggle auto-scroll
+    function toggleAutoScroll() {
+        autoScroll = !autoScroll;
+        const btn = document.getElementById('autoscroll-btn');
+        
+        if (autoScroll) {
+            btn.classList.remove('bg-gray-600');
+            btn.classList.add('bg-blue-600');
+            btn.innerHTML = '<i class="fas fa-arrow-down mr-2"></i>Auto-scroll';
+        } else {
+            btn.classList.remove('bg-blue-600');
+            btn.classList.add('bg-gray-600');
+            btn.innerHTML = '<i class="fas fa-pause mr-2"></i>Paused';
+        }
+    }
+    
+    // Clear logs
+    function clearLogs() {
+        if (!confirm('Clear all logs from display?')) return;
+        
+        logEntries = [];
+        stats = { DEBUG: 0, INFO: 0, WARNING: 0, ERROR: 0 };
+        
+        const container = document.getElementById('log-entries');
+        container.innerHTML = '<div class="text-gray-400 text-center py-8">Logs cleared</div>';
+        
+        updateStatistics();
+    }
+    
+    // Export logs
+    function exportLogs() {
+        const logText = logEntries.map(entry => {
+            const timestamp = new Date(entry.timestamp).toISOString();
+            return `[${timestamp}] [${entry.level}] [${entry.component}] ${entry.message}`;
+        }).join('\n');
+        
+        const blob = new Blob([logText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `nextprism-logs-${Date.now()}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showToast('Logs exported successfully', 'success');
+    }
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        startLogStream();
+        
+        // Setup filter event listeners
+        document.getElementById('log-level-filter').addEventListener('change', applyFilters);
+        document.getElementById('component-filter').addEventListener('change', applyFilters);
+        document.getElementById('log-search').addEventListener('input', applyFilters);
+    });
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (eventSource) {
+            eventSource.close();
+        }
+    });
+</script>
+{% endblock %}

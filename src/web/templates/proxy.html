@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}Proxy Services - Next_Prism{% endblock %}
+
+{% block page_title %}Proxy Services{% endblock %}
+{% block page_subtitle %}Manage Docker Swarm SSH proxy services{% endblock %}
+
+{% block content %}
+<!-- Swarm Mode Notice -->
+<div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded">
+    <div class="flex items-start">
+        <i class="fas fa-info-circle mt-1 mr-3"></i>
+        <div>
+            <p class="font-semibold">Docker Swarm Proxy Services</p>
+            <p class="text-sm mt-1">
+                These lightweight SSH proxies enable Next_Prism to execute commands on containers running across different Swarm nodes.
+                Each proxy runs alongside its target container and validates commands against a secure whitelist.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Proxy Status Cards -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Nextcloud Proxy -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold flex items-center">
+                <i class="fas fa-cloud text-blue-600 mr-2"></i>
+                Nextcloud Proxy
+            </h3>
+            <span id="nc-proxy-status-badge" class="px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-sm">
+                Unknown
+            </span>
+        </div>
+        
+        <div id="nc-proxy-details" class="space-y-3">
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Service Name:</span>
+                <span id="nc-service-name" class="font-mono">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Hostname:</span>
+                <span id="nc-hostname" class="font-mono">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Port:</span>
+                <span id="nc-port" class="font-mono">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Health:</span>
+                <span id="nc-health" class="font-semibold">-</span>
+            </div>
+        </div>
+        
+        <div class="mt-4 pt-4 border-t">
+            <h4 class="text-sm font-semibold mb-2">Connection Pool</h4>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Total Connections:</span>
+                <span id="nc-pool-total" class="font-mono">0</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Active:</span>
+                <span id="nc-pool-active" class="font-mono text-green-600">0</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Idle:</span>
+                <span id="nc-pool-idle" class="font-mono text-blue-600">0</span>
+            </div>
+        </div>
+        
+        <div class="mt-4 flex gap-2">
+            <button onclick="testProxy('nextcloud')" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+                <i class="fas fa-plug mr-2"></i>Test Connection
+            </button>
+            <button onclick="showProxyLogs('nextcloud')" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm">
+                <i class="fas fa-file-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- PhotoPrism Proxy -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold flex items-center">
+                <i class="fas fa-camera text-purple-600 mr-2"></i>
+                PhotoPrism Proxy
+            </h3>
+            <span id="pp-proxy-status-badge" class="px-3 py-1 bg-gray-200 text-gray-600 rounded-full text-sm">
+                Unknown
+            </span>
+        </div>
+        
+        <div id="pp-proxy-details" class="space-y-3">
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Service Name:</span>
+                <span id="pp-service-name" class="font-mono">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Hostname:</span>
+                <span id="pp-hostname" class="font-mono">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Port:</span>
+                <span id="pp-port" class="font-mono">-</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Health:</span>
+                <span id="pp-health" class="font-semibold">-</span>
+            </div>
+        </div>
+        
+        <div class="mt-4 pt-4 border-t">
+            <h4 class="text-sm font-semibold mb-2">Connection Pool</h4>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Total Connections:</span>
+                <span id="pp-pool-total" class="font-mono">0</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Active:</span>
+                <span id="pp-pool-active" class="font-mono text-green-600">0</span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-600">Idle:</span>
+                <span id="pp-pool-idle" class="font-mono text-blue-600">0</span>
+            </div>
+        </div>
+        
+        <div class="mt-4 flex gap-2">
+            <button onclick="testProxy('photoprism')" class="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition text-sm">
+                <i class="fas fa-plug mr-2"></i>Test Connection
+            </button>
+            <button onclick="showProxyLogs('photoprism')" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm">
+                <i class="fas fa-file-alt"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Proxy Management</h3>
+    
+    <div class="flex flex-wrap gap-4">
+        <button onclick="discoverProxies()" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+            <i class="fas fa-search mr-2"></i>
+            Discover Services
+        </button>
+        
+        <button onclick="refreshProxyStatus()" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+            <i class="fas fa-sync mr-2"></i>
+            Refresh Status
+        </button>
+        
+        <button onclick="clearConnectionPools()" class="px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
+            <i class="fas fa-broom mr-2"></i>
+            Clear Pools
+        </button>
+    </div>
+</div>
+
+<!-- Deployment Guide -->
+<div class="bg-white rounded-lg shadow p-6">
+    <h3 class="text-lg font-semibold mb-4 flex items-center">
+        <i class="fas fa-book mr-2 text-blue-600"></i>
+        Deployment Guide
+    </h3>
+    
+    <div class="space-y-4 text-sm">
+        <div>
+            <p class="font-semibold text-gray-700 mb-2">1. Generate SSH Keypairs</p>
+            <code class="block bg-gray-100 p-3 rounded">./scripts/generate_keys.sh</code>
+        </div>
+        
+        <div>
+            <p class="font-semibold text-gray-700 mb-2">2. Label Swarm Nodes</p>
+            <code class="block bg-gray-100 p-3 rounded">
+docker node update --label-add nextcloud=true &lt;node-name&gt;<br>
+docker node update --label-add photoprism=true &lt;node-name&gt;
+            </code>
+        </div>
+        
+        <div>
+            <p class="font-semibold text-gray-700 mb-2">3. Create Overlay Network</p>
+            <code class="block bg-gray-100 p-3 rounded">docker network create --driver overlay nextprism_network</code>
+        </div>
+        
+        <div>
+            <p class="font-semibold text-gray-700 mb-2">4. Deploy Proxy Services</p>
+            <code class="block bg-gray-100 p-3 rounded">
+docker stack deploy -c compose/nextcloud-proxy.yaml nextprism-nc-proxy<br>
+docker stack deploy -c compose/photoprism-proxy.yaml nextprism-pp-proxy
+            </code>
+        </div>
+        
+        <div>
+            <p class="font-semibold text-gray-700 mb-2">5. Verify Deployment</p>
+            <code class="block bg-gray-100 p-3 rounded">docker service ls | grep proxy</code>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const REFRESH_INTERVAL = 10000; // 10 seconds
+    let refreshTimer;
+    
+    // Load proxy status
+    async function loadProxyStatus() {
+        try {
+            const response = await apiRequest('/api/proxy/status');
+            if (!response.ok) throw new Error('Failed to fetch proxy status');
+            
+            const data = await response.json();
+            
+            updateProxyCard('nc', data.nextcloud_proxy);
+            updateProxyCard('pp', data.photoprism_proxy);
+            
+        } catch (error) {
+            console.error('Failed to load proxy status:', error);
+        }
+    }
+    
+    // Load connection pool stats
+    async function loadPoolStats() {
+        try {
+            const response = await apiRequest('/api/proxy/pools');
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            
+            updatePoolStats('nc', data.nextcloud);
+            updatePoolStats('pp', data.photoprism);
+            
+        } catch (error) {
+            console.error('Failed to load pool stats:', error);
+        }
+    }
+    
+    function updateProxyCard(prefix, proxyData) {
+        // Update status badge
+        const badge = document.getElementById(`${prefix}-proxy-status-badge`);
+        if (proxyData.healthy) {
+            badge.className = 'px-3 py-1 bg-green-200 text-green-800 rounded-full text-sm font-semibold';
+            badge.textContent = 'Healthy';
+        } else if (proxyData.available) {
+            badge.className = 'px-3 py-1 bg-yellow-200 text-yellow-800 rounded-full text-sm font-semibold';
+            badge.textContent = 'Unhealthy';
+        } else {
+            badge.className = 'px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-semibold';
+            badge.textContent = 'Not Found';
+        }
+        
+        // Update details
+        document.getElementById(`${prefix}-service-name`).textContent = 
+            proxyData.service_name || '-';
+        document.getElementById(`${prefix}-hostname`).textContent = 
+            proxyData.hostname || '-';
+        document.getElementById(`${prefix}-port`).textContent = 
+            proxyData.port || '-';
+        
+        const healthElem = document.getElementById(`${prefix}-health`);
+        if (proxyData.healthy) {
+            healthElem.textContent = 'Healthy';
+            healthElem.className = 'font-semibold text-green-600';
+        } else {
+            healthElem.textContent = 'Unhealthy';
+            healthElem.className = 'font-semibold text-red-600';
+        }
+    }
+    
+    function updatePoolStats(prefix, poolData) {
+        document.getElementById(`${prefix}-pool-total`).textContent = 
+            poolData?.total_connections || 0;
+        document.getElementById(`${prefix}-pool-active`).textContent = 
+            poolData?.active_connections || 0;
+        document.getElementById(`${prefix}-pool-idle`).textContent = 
+            poolData?.idle_connections || 0;
+    }
+    
+    // Discover proxies
+    async function discoverProxies() {
+        showToast('Discovering proxy services...', 'info');
+        
+        try {
+            const response = await apiRequest('/api/proxy/discover', {
+                method: 'POST'
+            });
+            
+            if (response.ok) {
+                showToast('Proxy discovery completed', 'success');
+                await loadProxyStatus();
+            } else {
+                throw new Error('Discovery failed');
+            }
+        } catch (error) {
+            showToast('Proxy discovery failed', 'error');
+        }
+    }
+    
+    // Refresh status
+    async function refreshProxyStatus() {
+        await loadProxyStatus();
+        await loadPoolStats();
+        showToast('Status refreshed', 'success');
+    }
+    
+    // Test proxy connection
+    async function testProxy(type) {
+        showToast(`Testing ${type} proxy...`, 'info');
+        
+        try {
+            const response = await apiRequest(`/api/test/${type}`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast(`${type} proxy: Connected`, 'success');
+            } else {
+                showToast(`${type} proxy: ${data.message}`, 'error');
+            }
+        } catch (error) {
+            showToast(`${type} proxy test failed`, 'error');
+        }
+    }
+    
+    // Clear connection pools
+    async function clearConnectionPools() {
+        if (!confirm('Clear all connection pools? This will close idle SSH connections.')) {
+            return;
+        }
+        
+        showToast('Connection pools management coming soon', 'info');
+    }
+    
+    // Show proxy logs (placeholder)
+    function showProxyLogs(type) {
+        showToast(`Proxy logs for ${type} - coming soon`, 'info');
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        loadProxyStatus();
+        loadPoolStats();
+        
+        // Auto-refresh
+        refreshTimer = setInterval(() => {
+            loadProxyStatus();
+            loadPoolStats();
+        }, REFRESH_INTERVAL);
+    });
+    
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+        if (refreshTimer) clearInterval(refreshTimer);
+    });
+</script>
+{% endblock %}

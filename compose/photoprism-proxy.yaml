@@ -1,0 +1,101 @@
+# Next_Prism PhotoPrism Proxy - Docker Swarm Stack
+#
+# This stack deploys the SSH proxy service for PhotoPrism commands.
+# The proxy must run on the same node as the PhotoPrism container to enable
+# docker exec communication.
+#
+# Prerequisites:
+# - Docker secrets created: photoprism_proxy_pubkey, photoprism_proxy_privkey
+# - PhotoPrism service running in Swarm
+# - Overlay network 'nextprism_network' created
+#
+# Deploy:
+#   docker stack deploy -c photoprism-proxy.yaml nextprism-pp-proxy
+#
+# Author: Next_Prism Project
+# License: MIT
+
+version: '3.8'
+
+services:
+  photoprism-proxy:
+    image: ${NEXTPRISM_REGISTRY:-localhost}/nextprism-photoprism-proxy:${NEXTPRISM_VERSION:-latest}
+    
+    # Build configuration (for local builds)
+    build:
+      context: ..
+      dockerfile: docker/proxy-photoprism.Dockerfile
+    
+    # Service placement: must run on same node as PhotoPrism
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          # Run on same node as PhotoPrism service
+          - node.labels.photoprism == true
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      labels:
+        - "service=photoprism-proxy"
+        - "nextprism.component=proxy"
+        - "nextprism.target=photoprism"
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    # Environment configuration
+    environment:
+      # Target container name (adjust if PhotoPrism service has different name)
+      PHOTOPRISM_CONTAINER: "${PHOTOPRISM_CONTAINER:-photoprism}"
+      
+      # Optional: custom SSH port (default: 2222)
+      # SSH_PORT: 2222
+    
+    # Docker secrets for SSH keys
+    secrets:
+      - photoprism_proxy_pubkey
+    
+    # Mount Docker socket for docker exec
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    
+    # Network configuration
+    networks:
+      - nextprism_network
+    
+    # Port exposure (only accessible within overlay network)
+    ports:
+      - target: 2222
+        published: 2223  # Different port to avoid conflict with Nextcloud proxy
+        protocol: tcp
+        mode: host  # Host mode for predictable port binding
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2222"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+# Docker secrets
+secrets:
+  photoprism_proxy_pubkey:
+    external: true
+
+# Networks
+networks:
+  nextprism_network:
+    external: true
+    driver: overlay

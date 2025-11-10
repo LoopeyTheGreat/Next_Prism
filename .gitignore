@@ -120,3 +120,20 @@ desktop.ini
 *.pyc
 *.pyo
 *.pyd
+
+# Cache and persistence files
+hash_cache.json
+queue_persistence.json
+*.cache
+.cache/
+
+# Logs
+*.log
+logs/
+!logs/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
