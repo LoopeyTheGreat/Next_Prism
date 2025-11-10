@@ -1,0 +1,122 @@
+# Next_Prism .gitignore
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Sync conflict files (Nextcloud, Syncthing, etc.)
+*sync-conflict*
+*conflicted*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# User data and configs (for local development)
+config/config.yaml
+config/config.yml
+data/
+logs/*.log
+!logs/.gitkeep
+
+# SSH keys (generated for Swarm proxies)
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+!scripts/generate_keys.sh
+
+# Secrets
+secrets/
+*.secret
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
