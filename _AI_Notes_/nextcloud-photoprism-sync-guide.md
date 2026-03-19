@@ -118,3 +118,14 @@ files to br moved to the phitiprism 'import' folder, allowing photo prism to org
 
 id like the web ui to be password protected if user wants, optional
 optional ip/subnet white list / access security
+
+samba/cifs support not needed, i decided to let the user handle thay at the server level. Notify/log perhaps if mount cails
+allow user to optionally creat/use an archive folder in the nextcloud folder which we move imported files into insyead od deleting them
+
+allow user to add additional folders that can be monitored the same as the nextcloud
+
+each folder should be able to be set as default  or custom scheduling
+
+for docker swarm, leys create 2 additional servicing/proxy compose files which can be added to the nextcloud or photoprism compose to foward docker exec commands to the appropriate container. Auto dizcover amd security are ctitical for this, however you suggest we do it.... Perhaps generating a secure ssh ksypaiir, and sshing into the proxy? Needs to be easy and user freindly,however you think we should do iy
+
+additional ideas or suggestions are welcome.
